@@ -123,7 +123,7 @@ public class EchoServerWSPool {
                 SocketChannel client = (SocketChannel) selectionKey.channel();
 
                 ByteBuffer buffer = ByteBuffer.allocate(256);
-                
+
                 client.read(buffer);
 
                 String output = new String(buffer.array()).trim();
