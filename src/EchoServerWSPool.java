@@ -2,10 +2,7 @@
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,15 +31,121 @@ public class EchoServerWSPool {
                 Set selectedKeys = selector.selectedKeys();
 
                 for (Object key : selectedKeys) {
-                    SelectionKey ky = (SelectionKey) key;
-                    selectedKeys.remove(ky);
-                    pool.execute(new Handler(serverSocket,ky,selector));
+                    SelectionKey selectionKey = (SelectionKey) key;
+                    //selectedKeys.remove(key);
+
+                    if(selectionKey.isValid()){
+
+                        if (selectionKey.isAcceptable()) {
+
+                            //System.out.println("isAcceptable");
+
+                            SocketChannel client = serverSocket.accept();
+                            client.configureBlocking(false);
+
+                            client.register(selector, SelectionKey.OP_READ);
+
+                            System.out.println("Connexion acceptée client : " + client);
+
+                        }
+                        else if(selectionKey.isReadable()){
+                            pool.execute(new HandlerReader(serverSocket,selectionKey,selector));
+                        }
+                    }
+
+                   // pool.execute(new Handler(serverSocket,selectionKey,selector));
                 }
 
                 selectedKeys.clear();
             } // end for loop
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+
+
+    static class HandlerAccept implements Runnable {
+
+        SelectionKey selectionKey;
+        ServerSocketChannel serverSocket;
+        Selector selector;
+
+        HandlerAccept(ServerSocketChannel serverSocket, SelectionKey selectionKey, Selector selector) throws IOException {
+            this.serverSocket = serverSocket;
+            this.selectionKey = selectionKey;
+            this.selector = selector;
+        }
+
+        public void run() {
+            try {
+
+
+                System.out.println("isAcceptable");
+
+                // Accept the new client connection
+                SocketChannel client = null;
+                client = serverSocket.accept();
+
+                if (client == null) {
+                    System.out.println("client null");
+                    return;
+                }
+
+                client.configureBlocking(false);
+
+                // Add the new connection to the selector
+                client.register(selector, SelectionKey.OP_READ);
+
+                System.out.println("Accepted new connection from client: " + client);
+
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
+    }
+
+
+    static class HandlerReader implements Runnable {
+
+        SelectionKey selectionKey;
+        ServerSocketChannel serverSocket;
+        Selector selector;
+
+        HandlerReader(ServerSocketChannel serverSocket, SelectionKey selectionKey, Selector selector) throws IOException {
+            this.serverSocket = serverSocket;
+            this.selectionKey = selectionKey;
+            this.selector = selector;
+        }
+
+        public void run() {
+            try {
+                SocketChannel client = (SocketChannel) selectionKey.channel();
+
+                ByteBuffer buffer = ByteBuffer.allocate(256);
+                
+                client.read(buffer);
+
+                String output = new String(buffer.array()).trim();
+
+                System.out.println("Message read from client: " + output);
+
+                buffer.flip();
+
+                //client.write(buffer);
+
+                if (!buffer.hasRemaining())
+                    client.close();
+
+            }
+            catch (ClosedChannelException e) {
+                System.out.println("close channel");
+                e.printStackTrace();
+            }
+            catch (IOException e1) {
+                e1.printStackTrace();
+            }
+
         }
     }
 
@@ -54,25 +157,30 @@ public class EchoServerWSPool {
 */
     static class Handler implements Runnable {
 
-        SelectionKey ky;
+        SelectionKey selectionKey;
         ServerSocketChannel serverSocket;
         Selector selector;
 
-        Handler(ServerSocketChannel serverSocket, SelectionKey ky, Selector selector) throws IOException {
+        Handler(ServerSocketChannel serverSocket, SelectionKey selectionKey, Selector selector) throws IOException {
             this.serverSocket = serverSocket;
-            this.ky = ky;
+            this.selectionKey = selectionKey;
             this.selector = selector;
         }
 
         public void run() {
             try {
 
-                if (ky.isAcceptable()) {
+                if (/*selectionKey.isValid() &&*/ selectionKey.isAcceptable()) {
                     System.out.println("isAcceptable");
 
                     // Accept the new client connection
                     SocketChannel client = null;
                     client = serverSocket.accept();
+
+                    if(client == null) {
+                        System.out.println("client null");
+                        return;
+                    }
 
                     client.configureBlocking(false);
 
@@ -80,11 +188,12 @@ public class EchoServerWSPool {
                     client.register(selector, SelectionKey.OP_READ);
 
                     System.out.println("Accepted new connection from client: " + client);
-                } else if (ky.isReadable()) {
+
+                } else if (/*selectionKey.isValid() &&*/ selectionKey.isReadable()) {
 
                     //System.out.println("isReadable");
                     // Read the data from client
-                    SocketChannel client = (SocketChannel) ky.channel();
+                    SocketChannel client = (SocketChannel) selectionKey.channel();
 
                     ByteBuffer buffer = ByteBuffer.allocate(256);
                     client.read(buffer);

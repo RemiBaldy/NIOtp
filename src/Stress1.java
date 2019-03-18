@@ -57,8 +57,6 @@ public class Stress1 {
                 String lu;
                 String tampon;
 
-                if (fini == true) break; /* on sort de la boucle infinie */
-
                 out.println("java client stress1 n "+i);
                 long startTimeMsg = System.nanoTime();
 

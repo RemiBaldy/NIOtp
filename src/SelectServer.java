@@ -27,10 +27,10 @@ public class SelectServer {
                 Set selectedKeys = selector.selectedKeys();
 
                 for(Object key : selectedKeys){
-                    SelectionKey ky = (SelectionKey) key;
-                    selectedKeys.remove(ky);
+                    SelectionKey selectionKey = (SelectionKey) key;
+                    selectedKeys.remove(key);
 
-                    if (ky.isAcceptable()) {
+                    if (selectionKey.isAcceptable()) {
 
                         //System.out.println("isAcceptable");
 
@@ -41,11 +41,11 @@ public class SelectServer {
 
                         System.out.println("Connexion acceptée client : " + client);
 
-                    } else if (ky.isReadable()) {
+                    } else if (selectionKey.isReadable()) {
 
                         //System.out.println("isReadable");
 
-                        SocketChannel client = (SocketChannel) ky.channel();
+                        SocketChannel client = (SocketChannel) selectionKey.channel();
                         ByteBuffer buffer = ByteBuffer.allocate(256);
                         client.read(buffer);
 
